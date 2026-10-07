@@ -33,6 +33,11 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <!-- Sinchronizavimo mygtukas tikrų avatarų atnaujinimui -->
+        <button onclick="syncYouTubeData()" title="Atnaujinti tikras nuotraukas ir skaičius iš YouTube" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 border border-slate-700 transition">
+          <i class="ph-bold ph-arrows-clockwise" id="syncIcon"></i> <span class="hidden sm:inline">Sinchronizuoti YouTube</span>
+        </button>
+
         <button onclick="openSubmitModal()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white flex items-center gap-1.5 transition glow-red">
           <i class="ph-bold ph-plus"></i> Pridėti kanalą į Topus
         </button>
@@ -172,20 +177,6 @@
           console.error('Klaida kraunant iš bazės:', err);
         }
       }
-
-      // Atsarginis sąrašas, jei bazė neprieinama, kad niekada nebūtų tuščia
-      if (allChannels.length === 0) {
-        allChannels = [
-          { title: 'Vėlyvas Vakaras', category: 'Pramogos', subscribers: 154000, total_views: 38600000, avatar_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150&h=150&fit=crop' },
-          { title: 'deMiko', category: 'Pramogos', subscribers: 168000, total_views: 49200000, avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop' },
-          { title: 'Jungle King', category: 'Kovos', subscribers: 94000, total_views: 28100000, avatar_url: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=150&h=150&fit=crop' },
-          { title: 'Klajumas Podcast', category: 'Tinklalaidės', subscribers: 82400, total_views: 24100000, avatar_url: 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=150&h=150&fit=crop' },
-          { title: 'LT Geimeris', category: 'Geimingas', subscribers: 79400, total_views: 21300000, avatar_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=150&h=150&fit=crop' },
-          { title: 'UTMA Lietuva', category: 'Kovos', subscribers: 71200, total_views: 19800000, avatar_url: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=150&h=150&fit=crop' },
-          { title: 'Sergej Maslobojev', category: 'Kovos', subscribers: 58900, total_views: 11400000, avatar_url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=150&h=150&fit=crop' }
-        ];
-      }
-
       renderTable();
     }
 
@@ -218,7 +209,10 @@
               <img src="${c.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}" 
                    onerror="this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'"
                    class="w-9 h-9 rounded-full object-cover border border-slate-700" alt="">
-              <span class="font-semibold text-white">${c.title}</span>
+              <div>
+                <span class="font-semibold text-white block">${c.title}</span>
+                <span class="text-[10px] text-slate-500">${c.handle || ''}</span>
+              </div>
             </div>
           </td>
           <td class="py-3 px-4">
@@ -243,6 +237,59 @@
         }
       });
       renderTable();
+    }
+
+    // TIKRŲ NUOTRAUKŲ SINCHRONIZAVIMAS
+    async function syncYouTubeData() {
+      let apiKey = localStorage.getItem('vidvidi_yt_key');
+      if (!apiKey) {
+        apiKey = prompt('Įklijuokite savo YouTube API raktą (prasideda AIzaSy...):');
+        if (!apiKey) return;
+        localStorage.setItem('vidvidi_yt_key', apiKey.trim());
+      }
+
+      const syncIcon = document.getElementById('syncIcon');
+      syncIcon.classList.add('animate-spin');
+
+      try {
+        let updatedCount = 0;
+        for (let ch of allChannels) {
+          let query = ch.handle ? ch.handle.replace('@', '') : ch.title;
+          // Paieška per YouTube API
+          const searchRes = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(query)}&key=${apiKey}`);
+          const searchData = await searchRes.json();
+
+          if (searchData.items && searchData.items.length > 0) {
+            const channelId = searchData.items[0].snippet.channelId;
+            
+            // Paimame detalią informaciją su dideliu avataru ir tiksliais skaičiais
+            const detRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`);
+            const detData = await detRes.json();
+
+            if (detData.items && detData.items.length > 0) {
+              const item = detData.items[0];
+              const realAvatar = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url;
+              const subs = parseInt(item.statistics.subscriberCount || '0', 10);
+              const views = parseInt(item.statistics.viewCount || '0', 10);
+
+              // Atnaujiname Supabase
+              await supabaseClient.from('channels').update({
+                avatar_url: realAvatar,
+                subscribers: subs,
+                total_views: views
+              }).eq('id', ch.id);
+
+              updatedCount++;
+            }
+          }
+        }
+        alert(`Sėkmingai atnaujinta ${updatedCount} kanalų su tikromis YouTube nuotraukomis!`);
+        await loadData();
+      } catch (err) {
+        alert('Klaida sinchronizuojant: ' + err.message);
+      } finally {
+        syncIcon.classList.remove('animate-spin');
+      }
     }
 
     function openSubmitModal() { document.getElementById('submitModal').classList.remove('hidden'); }
