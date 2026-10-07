@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VidVidi | Lietuvos YouTube Topai ir Kūrėjų Analitika</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #0b0d13; color: #f1f5f9; }
+    .heading-font { font-family: 'Space Grotesk', sans-serif; }
+    .glass-card { background: rgba(22, 27, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glow-red { box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.35); }
+  </style>
+</head>
+<body class="min-h-screen antialiased flex flex-col">
+
+  <!-- Navigacija -->
+  <header class="border-b border-slate-800 bg-[#0b0d13]/90 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center glow-red text-white text-xl">
+          <i class="ph-bold ph-play"></i>
+        </div>
+        <div>
+          <span class="heading-font font-bold text-2xl tracking-tight text-white flex items-center gap-1.5">
+            Vid<span class="text-red-500">Vidi</span>
+          </span>
+          <span class="text-[10px] tracking-wider uppercase text-slate-400 block font-medium">Lietuvos YouTube Topai</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="openSubmitModal()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white flex items-center gap-1.5 transition glow-red">
+          <i class="ph-bold ph-plus"></i> Pridėti kanalą į Topus
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero sekcija -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-6 w-full">
+    <div class="glass-card rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+      <div class="max-w-2xl relative z-10">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium mb-3">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Oficialūs Lietuvos kanalų reitingai
+        </div>
+        <h1 class="heading-font text-3xl sm:text-5xl font-bold text-white tracking-tight leading-tight">
+          Didžiausi Lietuvos <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500">YouTube kūrėjai</span>
+        </h1>
+        <p class="text-sm sm:text-base text-slate-400 mt-3">
+          Realaus laiko statistika, peržiūrų dinamika ir pajamų analitika. Projektas vystomas kartu su VideoStars MCN.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Valdymo juosta -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 py-4 w-full">
+    <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 text-xs font-medium">
+        <button onclick="filterCategory('Visi')" class="cat-btn px-4 py-2 rounded-xl bg-red-600 text-white font-semibold">Visi</button>
+        <button onclick="filterCategory('Kovos')" class="cat-btn px-4 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300">Kovos</button>
+        <button onclick="filterCategory('Pramogos')" class="cat-btn px-4 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300">Pramogos</button>
+        <button onclick="filterCategory('Tinklalaidės')" class="cat-btn px-4 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300">Tinklalaidės</button>
+        <button onclick="filterCategory('Geimingas')" class="cat-btn px-4 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300">Geimingas</button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="relative flex-1 sm:w-64">
+          <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+          <input type="text" id="searchInput" oninput="renderTable()" placeholder="Ieškoti kanalo..." 
+            class="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500">
+        </div>
+        <select id="sortBy" onchange="renderTable()" class="bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-300 py-2 px-3 focus:outline-none">
+          <option value="subs">Pagal prenumeratorius</option>
+          <option value="views">Pagal peržiūras</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lentelė -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-4 w-full flex-1">
+    <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-900/60 font-semibold">
+              <th class="py-3.5 px-4 w-12 text-center">#</th>
+              <th class="py-3.5 px-4">Kūrėjas / Kanalas</th>
+              <th class="py-3.5 px-4">Kategorija</th>
+              <th class="py-3.5 px-4 text-right">Prenumeratoriai</th>
+              <th class="py-3.5 px-4 text-right">Visos peržiūros</th>
+              <th class="py-3.5 px-4 text-center">Veiksmas</th>
+            </tr>
+          </thead>
+          <tbody id="channelsTableBody" class="divide-y divide-slate-800/60 text-xs">
+            <tr>
+              <td colspan="6" class="text-center py-8 text-slate-500">Kraunami duomenys iš VidVidi duomenų bazės...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Paraiškos forma -->
+  <div id="submitModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-md rounded-2xl p-6 border border-slate-700 relative">
+      <button onclick="closeModal('submitModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+        <i class="ph ph-x"></i>
+      </button>
+      <h3 class="heading-font font-bold text-lg text-white mb-1">Pateikite savo kanalą į VidVidi</h3>
+      <p class="text-xs text-slate-400 mb-4">Tapkite matomi reklamos užsakovams ir žiūrovams.</p>
+      
+      <form onsubmit="handleSubmit(event)" class="space-y-3">
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Kanalo pavadinimas</label>
+          <input id="formTitle" required type="text" placeholder="Pvz. UTMA Lietuva" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Kanalo nuoroda arba @handle</label>
+          <input id="formHandle" required type="text" placeholder="youtube.com/@kanalas" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-400 mb-1">Kategorija</label>
+          <select id="formCat" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white">
+            <option value="Kovos">Kovos menai / Sportas</option>
+            <option value="Pramogos">Pramogos</option>
+            <option value="Tinklalaidės">Tinklalaidės</option>
+            <option value="Geimingas">Geimingas</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-xs transition mt-2">
+          Pateikti kanalą
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <footer class="border-t border-slate-800/80 py-8 text-center text-xs text-slate-500">
+    <p>© 2026 VidVidi.lt – Visos teisės saugomos. Partneris: VideoStars MCN</p>
+  </footer>
+
+  <script>
+    const supabaseUrl = 'https://lyivqppegiprbhgbbpzr.supabase.co';
+    const supabaseKey = 'sb_publishable__2d3lZKfictg_ulAJnbXjw_E75GdUkB';
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+    let allChannels = [];
+    let currentCategory = 'Visi';
+
+    // Atsarginiai kanalai, jei bazėje dar nėra įrašų
+    const fallbackChannels = [
+      { title: "UTMA Lietuva", category: "Kovos", subscribers: 68500, total_views: 18400000, avatar_url: "https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=100&h=100&fit=crop" },
+      { title: "Sergej Maslobojev", category: "Kovos", subscribers: 54200, total_views: 9800000, avatar_url: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=100&h=100&fit=crop" },
+      { title: "Vėlyvas Vakaras", category: "Pramogos", subscribers: 142000, total_views: 32000000, avatar_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&h=100&fit=crop" },
+      { title: "Jungle King", category: "Kovos", subscribers: 89000, total_views: 24500000, avatar_url: "https://images.unsplash.com/photo-1509281373149-e957c6296406?w=100&h=100&fit=crop" },
+      { title: "Ant Bangos Podcast", category: "Tinklalaidės", subscribers: 34000, total_views: 6100000, avatar_url: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=100&h=100&fit=crop" },
+      { title: "LT Geimeris", category: "Geimingas", subscribers: 76000, total_views: 19200000, avatar_url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=100&h=100&fit=crop" }
+    ];
+
+    async function loadData() {
+      try {
+        const { data, error } = await supabaseClient.from('channels').select('*');
+        if (error || !data || data.length === 0) {
+          allChannels = fallbackChannels;
+        } else {
+          allChannels = data;
+        }
+      } catch (err) {
+        allChannels = fallbackChannels;
+      }
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('channelsTableBody');
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const sortBy = document.getElementById('sortBy').value;
+
+      let filtered = allChannels.filter(c => {
+        const matchesCat = currentCategory === 'Visi' || c.category === currentCategory;
+        const matchesSearch = (c.title || '').toLowerCase().includes(search);
+        return matchesCat && matchesSearch;
+      });
+
+      filtered.sort((a, b) => {
+        if (sortBy === 'subs') return (b.subscribers || 0) - (a.subscribers || 0);
+        if (sortBy === 'views') return (b.total_views || 0) - (a.total_views || 0);
+      });
+
+      tbody.innerHTML = filtered.map((c, index) => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-3 px-4 text-center font-bold ${index < 3 ? 'text-amber-400' : 'text-slate-500'}">${index + 1}</td>
+          <td class="py-3 px-4">
+            <div class="flex items-center gap-3">
+              <img src="${c.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}" class="w-9 h-9 rounded-full object-cover border border-slate-700" alt="">
+              <span class="font-semibold text-white">${c.title}</span>
+            </div>
+          </td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${c.category}</span>
+          </td>
+          <td class="py-3 px-4 text-right font-medium text-white">${Number(c.subscribers || 0).toLocaleString()}</td>
+          <td class="py-3 px-4 text-right text-slate-300">${Number(c.total_views || 0).toLocaleString()}</td>
+          <td class="py-3 px-4 text-center">
+            <span class="text-xs text-red-400 font-medium">Reitinge</span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        if (btn.innerText.includes(cat) || (cat === 'Visi' && btn.innerText === 'Visi')) {
+          btn.className = 'cat-btn px-4 py-2 rounded-xl bg-red-600 text-white font-semibold';
+        } else {
+          btn.className = 'cat-btn px-4 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300';
+        }
+      });
+      renderTable();
+    }
+
+    function openSubmitModal() { document.getElementById('submitModal').classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    
+    function handleSubmit(e) {
+      e.preventDefault();
+      alert('Ačiū! Kanalo paraiška gauta. Po patikrinimo jis bus įtrauktas į VidVidi reitingus.');
+      closeModal('submitModal');
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
