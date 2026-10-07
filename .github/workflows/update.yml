@@ -1,0 +1,28 @@
+name: Atnaujinti YouTube Topus
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Atsisiųsti kodą
+        uses: actions/checkout@v4
+
+      - name: Paruošti Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Įdiegti bibliotekas
+        run: npm install
+
+      - name: Vykdyti sinchronizaciją
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: node updater.js
